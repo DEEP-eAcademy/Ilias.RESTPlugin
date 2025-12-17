@@ -3,6 +3,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [5.0.0]
+### Added
+- ILIAS 9 support
+- PHP 8.2 support
+### Removed
+- Support for ILIAS versions older than 9
+- PHP 7 compatibility code paths
+### Fixed
+- Guard legacy magic quotes detection to prevent PHP 8.2 fatal errors
+- Updated `ilLink` include paths for the new PermanentLink service layout in ILIAS 9
+- OAuth2 certificate handling now tolerates missing `$_SERVER['SSL_CLIENT_*']` values to avoid PHP notices when no client cert is supplied
+
 ## [4.0.0] 
 ### Added
 - ILIAS 8 support

@@ -7,8 +7,8 @@ This is a modified version of the original [REST plugin](https://github.com/hrz-
 which contains changes required by the IACUBUS mobile application.
 
 ## Requirements
-* Version: ILIAS 8
-* PHP 7.0 - 7.4
+* Version: ILIAS 9
+* PHP 8.2
 
 ## Installation
 
