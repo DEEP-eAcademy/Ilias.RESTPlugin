@@ -11,10 +11,11 @@
         "optimize-autoloader": true,
         "classmap-authoritative": true,
         "platform": {
-            "php": "5.5"
+            "php": "8.2.0"
         }
     },
     "require": {
+        "php": "^8.2",
         "swaggest/json-schema": "^0.12.4",
         "ext-json": "*"
     },
