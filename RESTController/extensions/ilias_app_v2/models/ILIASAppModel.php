@@ -14,7 +14,7 @@ use DateTime;
 
 require_once('./Services/Membership/classes/class.ilParticipants.php');
 require_once('./Modules/File/classes/class.ilObjFile.php');
-require_once('./Services/Link/classes/class.ilLink.php');
+require_once('./Services/PermanentLink/classes/class.ilLink.php');
 require_once('./Services/Administration/classes/class.ilSetting.php');
 require_once __DIR__ . '/data/IliasTreeItem.php';
 
