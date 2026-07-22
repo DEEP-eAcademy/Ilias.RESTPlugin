@@ -10,6 +10,9 @@ RESTController/extensions/ilias_app*/apiblueprint/*.html
 # Exclude tools config inis
 *.ini.php
 
+# Exclude mobile app test credentials (see tests/mobile_app/config.example.php)
+tests/mobile_app/config.php
+
 # Deliver vendor directory as temporary work around in order to ease deployment.
 # /vendor/
 
