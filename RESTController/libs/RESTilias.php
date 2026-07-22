@@ -332,6 +332,21 @@ class RESTilias
         \ilInitialisation::initILIAS();
         header_remove('Set-Cookie');
 
+        // ilContextRest::hasHTML() is false, so ILIAS's own initILIAS() never
+        // calls initHTML()/initUIFramework() -- the 'ui.factory' DIC service
+        // (and friends) never get registered. On ILIAS 10, some core object
+        // update hooks (eg. ilObjFile::beforeUpdate() -> updateCopyright(),
+        // triggered merely by ilObjFile::sendFile()'s download-count update)
+        // unconditionally need 'ui.factory' regardless of context, and fatal
+        // with "Identifier 'ui.factory' is not defined" without it. Register
+        // it ourselves: initUIFramework() only registers lazy Pimple factory
+        // closures, none of which get eagerly instantiated, so this is cheap
+        // and safe to always do.
+        global $DIC;
+        if (isset($DIC) && !isset($DIC['ui.factory']) && method_exists('\ilInitialisation', 'initUIFramework')) {
+            \ilInitialisation::initUIFramework($DIC);
+        }
+
         // Restore original, since this could lead to bad side-effects otherwise
         $_SERVER['HTTP_HOST'] = $_ORG_SERVER['HTTP_HOST'];
         $_SERVER['REQUEST_URI'] = $_ORG_SERVER['REQUEST_URI'];

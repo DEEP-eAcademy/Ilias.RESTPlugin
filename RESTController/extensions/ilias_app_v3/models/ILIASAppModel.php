@@ -131,7 +131,8 @@ final class ILIASAppModel extends Libs\RESTModel {
         $ilDB = $DIC['ilDB'];
         $q = "SELECT status FROM ut_lp_marks WHERE obj_id=" . $file->getId() . " AND usr_id=" . $userId;
         $ret = $ilDB->query($q);
-        $fileLearningProgress = boolval($ilDB->fetchAssoc($ret)["status"]);
+        $lpRow = $ilDB->fetchAssoc($ret);
+        $fileLearningProgress = $lpRow !== null ? boolval($lpRow["status"]) : false;
 
         //The new ResourceStorage in ILIAS 7.2 does not implement the file extension method call.
         return ["body" => array(
@@ -183,6 +184,9 @@ final class ILIASAppModel extends Libs\RESTModel {
         if($ret === false)
             return ["body" => new ErrorAnswer("Internal Server Error"), "status" => 500];
         $dat = $ilDB->fetchAssoc($ret);
+        if ($dat === null) {
+            $dat = ["primary_color" => null, "contrast_color" => null, "timestamp" => 0];
+        }
 
         $clientName = CLIENT_ID;
         $iconsDir = "data/$clientName/pegasushelper/theme/icons/";

@@ -47,6 +47,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Fixed
 - Fixed a pre-existing syntax error (`new\ ilWorkspaceTree` instead of
   `new \ilWorkspaceTree`) in `PersonalFileSpaceModel::deleteFromMyFileSpace()`.
+- Fixed `GET /v3/ilias-app/files/:refId` (`ILIASAppModel::getFileData()`)
+  throwing a 500 ("Trying to access array offset on value of type null")
+  whenever a file has no learning-progress record yet for the requesting
+  user -- the common case for any file the user hasn't opened before. Found
+  via the new `tests/mobile_app` endpoint tests running against a real
+  ILIAS 10 instance.
+- Fixed the same latent bug in `GET /v3/ilias-app/theme`
+  (`ILIASAppModel::getThemeData()`): would 500 if the `ui_uihk_pegasus_theme`
+  settings row doesn't exist yet (eg. a fresh install where no admin has
+  configured the theme), now falls back to sensible defaults.
+- Fixed `RESTilias::initILIAS()` not registering the ILIAS UI framework's
+  `ui.factory` DIC service, causing a 500 ("Identifier 'ui.factory' is not
+  defined") on any route that ends up calling `ilObjFile::sendFile()`
+  (eg. `GET /v1/files/:id` without `meta_data`) or otherwise updates an
+  object whose `beforeUpdate()` hook touches metadata/copyright rendering.
+  ILIAS marks the REST context as `hasHTML() === false`, so ILIAS's own
+  bootstrap skips `initUIFramework()` -- but ILIAS 10's file-update code
+  path needs `ui.factory` regardless. Registered explicitly now (cheap: it
+  only registers lazy factory closures, nothing is eagerly instantiated).
+  Found via the new `tests/mobile_app` endpoint tests running against a
+  real ILIAS 10 instance.
 
 ## [5.0.0]
 ### Added
