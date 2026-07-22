@@ -1,14 +1,14 @@
 <?php
 /**
- * Endpoint tests for the IACUBUS / ILIAS Pegasus mobile app API
- * (RESTController/extensions/ilias_app_v3), the version the current
- * mobile app actually talks to.
+ * Endpoint tests for the IACUBUS / ILIAS Pegasus mobile app API: the
+ * current /v3/ilias-app/* routes (RESTController/extensions/ilias_app_v3),
+ * plus GET /v1/files/:id (RESTController/extensions/files_v1), which the
+ * app also uses for file downloads.
  *
  * This is a standalone CLI script -- no PHPUnit, no Composer dev
  * dependencies. It authenticates against a real, running ILIAS instance
  * (Resource Owner Password Credentials grant, same as the mobile app) and
- * exercises each /v3/ilias-app/* route, checking status codes and response
- * shape.
+ * exercises each route, checking status codes and response shape.
  *
  * Usage:
  *   1. cp tests/mobile_app/config.example.php tests/mobile_app/config.php
@@ -243,6 +243,62 @@ $runner->run('POST /v3/ilias-app/files/:refId/learning-progress-to-done marks pr
     assertStatus(200, $result, 'learning-progress request');
     $json = assertJson($result, 'learning-progress request');
     assertHasKeys($json, array('message'), 'learning-progress response');
+});
+
+// ---------------------------------------------------------------------
+// GET /v1/files/:id (files_v1 extension)
+//
+// Unlike the /v3/ilias-app/* routes above, this one is gated by
+// RESTAuth::PERMISSION rather than RESTAuth::TOKEN: it checks the token
+// AND that the API client has an explicit route permission configured for
+// 'GET /v1/files/:id' (table ui_uihk_rest_perm). Both a missing/invalid
+// token AND a valid token without that route permission come back as
+// HTTP 401 -- so a 401 on the "returns file metadata" test below does not
+// necessarily mean authentication itself is broken, it may just mean the
+// configured API client hasn't been granted this route. See the assertion
+// message for the distinguishing 'no permission' hint.
+// ---------------------------------------------------------------------
+
+$runner->run('GET /v1/files/:id requires a token', function () use ($client, $fileRefId) {
+    if ($fileRefId <= 0) {
+        throw new TestSkipped('config.fileRefId not set');
+    }
+    $result = $client->get('/v1/files/' . $fileRefId, array('meta_data' => 'true'), false);
+    assertStatus(401, $result, 'unauthenticated v1 files request');
+});
+
+$runner->run('GET /v1/files/:id returns file metadata', function () use ($client, $fileRefId) {
+    if ($fileRefId <= 0) {
+        throw new TestSkipped('config.fileRefId not set');
+    }
+    // id_type defaults to 'ref_id', matching config.fileRefId.
+    $result = $client->get('/v1/files/' . $fileRefId, array('meta_data' => 'true'), true);
+    if ($result['status'] === 401) {
+        $message = $result['json']['message'] ?? $result['body'];
+        throw new \RuntimeException(
+            "v1 files request: got HTTP 401 with a valid token -- this usually means the API client " .
+            "has no route permission for 'GET /v1/files/:id' (grant it via the plugin admin UI or " .
+            "ClientConfiguration::createClient()), not that authentication itself failed. Server said: $message"
+        );
+    }
+    assertStatus(200, $result, 'v1 files request');
+    $json = assertJson($result, 'v1 files request');
+    assertHasKeys($json, array('ext', 'name', 'size', 'type', 'dir', 'version', 'realpath'), 'v1 files response');
+});
+
+$runner->run('GET /v1/files/:id downloads file content', function () use ($client, $fileRefId) {
+    if ($fileRefId <= 0) {
+        throw new TestSkipped('config.fileRefId not set');
+    }
+    // Without meta_data, the route streams the raw file via sendFile() instead of JSON.
+    $result = $client->get('/v1/files/' . $fileRefId, array(), true);
+    if ($result['status'] === 401) {
+        throw new TestSkipped('API client likely has no route permission for GET /v1/files/:id');
+    }
+    assertStatus(200, $result, 'v1 files download');
+    if ($result['body'] === '') {
+        throw new \RuntimeException('v1 files download: response body was empty');
+    }
 });
 
 exit($runner->summary());

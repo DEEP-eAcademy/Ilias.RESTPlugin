@@ -1,9 +1,9 @@
 # Mobile app (IACUBUS / ILIAS Pegasus) endpoint tests
 
-Standalone PHP scripts that verify the `ilias_app_v3` endpoints -- the ones
-the current mobile app actually calls -- work against a real, running ILIAS
-instance. No PHPUnit or Composer dev-dependencies required, just the `php`
-CLI with the `curl` extension.
+Standalone PHP scripts that verify the endpoints the current mobile app
+actually calls work against a real, running ILIAS instance. No PHPUnit or
+Composer dev-dependencies required, just the `php` CLI with the `curl`
+extension.
 
 ## Covered endpoints
 
@@ -13,6 +13,15 @@ CLI with the `curl` extension.
 | `/v3/ilias-app/object/:refId` | GET | requires a token; returns object metadata (skipped if no ref-ID configured) |
 | `/v3/ilias-app/files/:refId` | GET | requires a token; returns file metadata (skipped if no ref-ID configured) |
 | `/v3/ilias-app/files/:refId/learning-progress-to-done` | POST | requires a token; marks progress done (opt-in, see below) |
+| `/v1/files/:id` | GET | requires a token; returns file metadata (`meta_data=true`); downloads file content (skipped if no ref-ID configured) |
+
+`/v1/files/:id` (in `files_v1`, not `ilias_app_v3`) is gated by
+`RESTAuth::PERMISSION` rather than `RESTAuth::TOKEN` -- it also checks that
+the configured API client has an explicit route permission for
+`GET /v1/files/:id` (`ui_uihk_rest_perm`), separately from whether the token
+itself is valid. Both cases come back as plain HTTP 401, so if the "returns
+file metadata" test fails with 401, check the failure message: it will tell
+you to grant the route permission rather than assume auth is broken.
 
 ## Setup
 
@@ -25,6 +34,7 @@ Edit `config.php` (gitignored -- never commit real credentials):
 - `baseUrl` -- this plugin's `api.php`, e.g.
   `https://your-domain/Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/api.php`
 - `apiKey` / `apiSecret` -- a REST API client with `ilias_app_v3` permissions
+  and a route permission for `GET /v1/files/:id`
   (create one via the plugin's admin UI, or
   `RESTController\extensions\ClientConfiguration::createClient()`)
 - `username` / `password` -- an ILIAS user the mobile app would log in as.
@@ -32,7 +42,8 @@ Edit `config.php` (gitignored -- never commit real credentials):
 - `objectRefId` -- ref-ID of any repository object the test user can read.
   Leave as `0` to skip the object test.
 - `fileRefId` -- ref-ID of an actual File object (`ilObjFile`) the test user
-  can read. Leave as `0` to skip the file tests.
+  can read. Used by both the `/v3/ilias-app/files/*` and `/v1/files/:id`
+  tests. Leave as `0` to skip all of them.
 - `runDestructiveTests` -- set to `true` to also run the
   `learning-progress-to-done` test. This **writes** data (marks the
   configured file read/done for the test user), so it's off by default --
