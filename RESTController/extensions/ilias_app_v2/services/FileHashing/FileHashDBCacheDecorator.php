@@ -4,7 +4,7 @@ namespace RESTController\extensions\ILIASApp\V2;
 
 require_once __DIR__ . '/SHA256FileHashProvider.php';
 require_once __DIR__ . '/FileHashProvider.php';
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/services/FileHashing/entity/HashCacheEntry.php';
+require_once __DIR__ . '/entity/HashCacheEntry.php';
 
 /**
  * Class FileHashDBCacheDecorator

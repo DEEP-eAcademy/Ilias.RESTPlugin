@@ -332,7 +332,7 @@ class Authorize extends Libs\RESTModel {
 
     // fetch absolute dirictory of view folder
     $plugin     = Libs\RESTilias::getPlugin();
-    $pluginDir  = str_replace('./', '', $plugin->getDirectory());
+    $pluginDir  = Libs\RESTilias::getPluginRelativeDirectory($plugin);
     $viewDir    = $pluginDir . '/RESTController/core/oauth2_v2/views/';
 
     // Content and further logic is managed by the template

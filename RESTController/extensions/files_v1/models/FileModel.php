@@ -11,8 +11,8 @@ namespace RESTController\extensions\files_v1;
 use ILIAS\DI\Container;
 use \RESTController\libs as Libs;
 
-require_once('Modules/File/classes/class.ilObjFile.php');
-require_once('Services/User/classes/class.ilObjUser.php');
+Libs\RESTilias::includeIlias('Modules/File/classes/class.ilObjFile.php');
+Libs\RESTilias::includeIlias('Services/User/classes/class.ilObjUser.php');
 
 class FileModel extends Libs\RESTModel
 {
@@ -32,7 +32,7 @@ class FileModel extends Libs\RESTModel
         $container = $GLOBALS["DIC"];
         $ilAccess = $container->access();
 
-        require_once('Services/Xml/classes/class.ilSaxParser.php');
+        Libs\RESTilias::includeIlias('Services/Xml/classes/class.ilSaxParser.php');
 
         // Check access
         $permission_ok = false;
@@ -58,7 +58,7 @@ class FileModel extends Libs\RESTModel
      */
     public function getFileObj($obj_id)
     {
-        require_once('Services/Xml/classes/class.ilSaxParser.php');
+        Libs\RESTilias::includeIlias('Services/Xml/classes/class.ilSaxParser.php');
         Libs\RESTilias::initGlobal('objDefinition', 'ilObjectDefinition', './Services/Object/classes/class.ilObjectDefinition.php');
         $fileObj = \ilObjectFactory::getInstanceByObjId($obj_id);
 
@@ -83,7 +83,7 @@ class FileModel extends Libs\RESTModel
         define('MAXLENGTH_OBJ_TITLE', 125);
         define('MAXLENGTH_OBJ_DESC', 123);
 
-        require_once('Services/Xml/classes/class.ilSaxParser.php');
+        Libs\RESTilias::includeIlias('Services/Xml/classes/class.ilSaxParser.php');
         Libs\RESTilias::initGlobal('objDefinition', 'ilObjectDefinition', './Services/Object/classes/class.ilObjectDefinition.php');
         Libs\RESTilias::initGlobal('ilAppEventHandler', 'ilAppEventHandler', './Services/EventHandling/classes/class.ilAppEventHandler.php');
         Libs\RESTilias::initGlobal('ilObjDataCache', 'ilObjectDataCache', './Services/Object/classes/class.ilObjectDataCache.php');
@@ -112,7 +112,7 @@ class FileModel extends Libs\RESTModel
         if (trim($title) == '') {
             $title = $filename;
         } else {
-            include_once('Modules/File/classes/class.ilObjFileAccess.php');
+            Libs\RESTilias::includeIlias('Modules/File/classes/class.ilObjFileAccess.php');
             // BEGIN WebDAV: Ensure that object title ends with the filename extension
             $fileExtension = \ilObjFileAccess::_getFileExtension($filename);
             $titleExtension = \ilObjFileAccess::_getFileExtension($title);
@@ -123,15 +123,21 @@ class FileModel extends Libs\RESTModel
         }
 
         // create and insert file in grp_tree
-        include_once('Modules/File/classes/class.ilObjFile.php');
+        Libs\RESTilias::includeIlias('Modules/File/classes/class.ilObjFile.php');
         $fileObj = new \ilObjFile();
         $fileObj->setOwner($owner_id);
         $fileObj->setTitle($title);
         $fileObj->setDescription($description);
         $fileObj->setFileName($filename);
 
-        include_once('Services/Utilities/classes/class.ilMimeTypeUtil.php');
-        $fileObj->setFileType(\ilMimeTypeUtil::getMimeType('', $filename, $type));
+        // ilMimeTypeUtil was removed in ILIAS 10; ILIAS\FileUpload\MimeType is its
+        // drop-in, namespaced replacement (same getMimeType() signature).
+        if (class_exists('\ilMimeTypeUtil')) {
+            Libs\RESTilias::includeIlias('Services/Utilities/classes/class.ilMimeTypeUtil.php');
+            $fileObj->setFileType(\ilMimeTypeUtil::getMimeType('', $filename, $type));
+        } else {
+            $fileObj->setFileType(\ILIAS\FileUpload\MimeType::getMimeType('', $filename, $type));
+        }
         $fileObj->setFileSize($size);
         $object_id = $fileObj->create();
         //var_dump($fileObj);
@@ -175,12 +181,12 @@ class FileModel extends Libs\RESTModel
         $ref_id = $a_obj->getRefId();
 
         // BEGIN ChangeEvent: Record save object.
-        require_once('Services/Tracking/classes/class.ilChangeEvent.php');
+        Libs\RESTilias::includeIlias('Services/Tracking/classes/class.ilChangeEvent.php');
         \ilChangeEvent::_recordWriteEvent($obj_id, $ilUser->getId(), 'create');
         // END ChangeEvent: Record save object.
 
         // rbac log
-        include_once('Services/AccessControl/classes/class.ilRbacLog.php');
+        Libs\RESTilias::includeIlias('Services/AccessControl/classes/class.ilRbacLog.php');
         $rbac_log_roles = $rbacreview->review()->getParentRoleIds($ref_id, false);
         $rbac_log = \ilRbacLog::gatherFaPa($ref_id, array_keys($rbac_log_roles), true);
         \ilRbacLog::add(\ilRbacLog::CREATE_OBJECT, $ref_id, $rbac_log);

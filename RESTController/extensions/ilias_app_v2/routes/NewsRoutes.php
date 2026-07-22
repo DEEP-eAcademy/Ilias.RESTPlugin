@@ -17,8 +17,8 @@ use RESTController\RESTController;
 $app->group('/news', function() use ($app) {
 
 	$init = function(RESTController $app) {
-		require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/ErrorAnswer.php';
-		require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/NewsAPI.php';
+		require_once __DIR__ . '/../models/data/ErrorAnswer.php';
+		require_once __DIR__ . '/../models/NewsAPI.php';
 
 		//set json content type for all sub routes
 		$app->response()->headers()->set('Content-Type', 'application/json');

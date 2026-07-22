@@ -2,9 +2,11 @@
 
 namespace RESTController\extensions\ILIASApp\V2;
 
-require_once './Services/ActiveRecord/class.ActiveRecord.php';
-
 use ActiveRecord;
+use RESTController\libs\RESTilias;
+
+require_once __DIR__ . '/../../../../../libs/RESTilias.php';
+RESTilias::includeIlias('Services/ActiveRecord/class.ActiveRecord.php');
 
 /**
  * Class HashCacheEntry

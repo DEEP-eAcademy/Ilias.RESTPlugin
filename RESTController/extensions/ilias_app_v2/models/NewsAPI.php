@@ -2,9 +2,8 @@
 
 namespace RESTController\extensions\ILIASApp\V2;
 
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/libs/RESTilias.php';
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/NewsItem.php';
-require_once './Services/News/classes/class.ilNewsItem.php';
+require_once __DIR__ . '/../../../libs/RESTilias.php';
+require_once __DIR__ . '/data/NewsItem.php';
 
 use DateTime;
 use ilLanguage;
@@ -14,6 +13,8 @@ use ilObjectDefinition;
 use ilObjectPlugin;
 use RESTController\extensions\ILIASApp\V2\data\block\NewsItem;
 use RESTController\libs\RESTilias;
+
+RESTilias::includeIlias('Services/News/classes/class.ilNewsItem.php');
 
 /**
  * Class NewsAPI
@@ -127,7 +128,7 @@ final class NewsAPI {
 		}
 		else
 		{
-			include_once("./Services/Component/classes/class.ilPlugin.php");
+			RESTilias::includeIlias('Services/Component/classes/class.ilPlugin.php');
 			$obj_type = ilObjectPlugin::lookupTxtById($objectType, "obj_$objectType");
 		}
 

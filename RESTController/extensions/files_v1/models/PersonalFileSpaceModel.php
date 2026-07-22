@@ -11,9 +11,9 @@ namespace RESTController\extensions\files_v1;
 use \RESTController\libs as Libs;
 use ILIAS\DI\Container;
 
-require_once('Modules/File/classes/class.ilObjFile.php');
-require_once('Services/User/classes/class.ilObjUser.php');
-require_once('Services/Object/classes/class.ilObjectFactory.php');
+Libs\RESTilias::includeIlias('Modules/File/classes/class.ilObjFile.php');
+Libs\RESTilias::includeIlias('Services/User/classes/class.ilObjUser.php');
+Libs\RESTilias::includeIlias('Services/Object/classes/class.ilObjectFactory.php');
 
 /**
  * Class PersonalFileSpaceModel
@@ -72,7 +72,7 @@ class PersonalFileSpaceModel extends Libs\RESTModel
         define('MAXLENGTH_OBJ_TITLE', 125);
         define('MAXLENGTH_OBJ_DESC', 123);
 
-        require_once('Services/Xml/classes/class.ilSaxParser.php');
+        Libs\RESTilias::includeIlias('Services/Xml/classes/class.ilSaxParser.php');
         Libs\RESTilias::initGlobal('objDefinition', 'ilObjectDefinition', './Services/Object/classes/class.ilObjectDefinition.php');
         Libs\RESTilias::initGlobal('ilAppEventHandler', 'ilAppEventHandler', './Services/EventHandling/classes/class.ilAppEventHandler.php');
         Libs\RESTilias::initGlobal('ilObjDataCache', 'ilObjectDataCache', './Services/Object/classes/class.ilObjectDataCache.php');
@@ -98,7 +98,7 @@ class PersonalFileSpaceModel extends Libs\RESTModel
         if (trim($title) == '') {
             $title = $filename;
         } else {
-            include_once('Modules/File/classes/class.ilObjFileAccess.php');
+            Libs\RESTilias::includeIlias('Modules/File/classes/class.ilObjFileAccess.php');
             // BEGIN WebDAV: Ensure that object title ends with the filename extension
             $fileExtension = \ilObjFileAccess::_getFileExtension($filename);
             $titleExtension = \ilObjFileAccess::_getFileExtension($title);
@@ -110,15 +110,21 @@ class PersonalFileSpaceModel extends Libs\RESTModel
 
 
         // create and insert file in grp_tree
-        include_once('Modules/File/classes/class.ilObjFile.php');
+        Libs\RESTilias::includeIlias('Modules/File/classes/class.ilObjFile.php');
         $fileObj = new \ilObjFile();
         $fileObj->setOwner($owner_id);
         $fileObj->setTitle($title);
         $fileObj->setDescription($description);
         $fileObj->setFileName($filename);
 
-        include_once('Services/Utilities/classes/class.ilMimeTypeUtil.php');
-        $fileObj->setFileType(\ilMimeTypeUtil::getMimeType('', $filename, $type));
+        // ilMimeTypeUtil was removed in ILIAS 10; ILIAS\FileUpload\MimeType is its
+        // drop-in, namespaced replacement (same getMimeType() signature).
+        if (class_exists('\ilMimeTypeUtil')) {
+            Libs\RESTilias::includeIlias('Services/Utilities/classes/class.ilMimeTypeUtil.php');
+            $fileObj->setFileType(\ilMimeTypeUtil::getMimeType('', $filename, $type));
+        } else {
+            $fileObj->setFileType(\ILIAS\FileUpload\MimeType::getMimeType('', $filename, $type));
+        }
         $fileObj->setFileSize($size);
         $object_id = $fileObj->create();
         $this->putObjectInMyFileSpaceTree($fileObj, $user_id, $destinationFolderStr);
@@ -153,15 +159,15 @@ class PersonalFileSpaceModel extends Libs\RESTModel
         $ilLog = $container->logger()->root();
         $rbacreview = $container->rbac()->review();
 
-        include_once 'Services/PersonalWorkspace/classes/class.ilWorkspaceTree.php';
+        Libs\RESTilias::includeIlias('Services/PersonalWorkspace/classes/class.ilWorkspaceTree.php');
         $tree = new \ilWorkspaceTree($user_id);
         if (!$tree->getRootId()) {
             $tree->createTreeForUser($user_id);
         }
 
         if ($destinationFolderStr != '') { // create folder if necessary
-            include_once 'Modules/WorkspaceFolder/classes/class.ilObjWorkspaceFolder.php';
-            include_once 'Services/Object/classes/class.ilObjectFactory.php';
+            Libs\RESTilias::includeIlias('Modules/WorkspaceFolder/classes/class.ilObjWorkspaceFolder.php');
+            Libs\RESTilias::includeIlias('Services/Object/classes/class.ilObjectFactory.php');
             $factory = new \ilObjectFactory();
             $aNodeIdsFolders = $tree->getObjectsFromType('wfld');
             $destFolderExists = false;
@@ -200,12 +206,12 @@ class PersonalFileSpaceModel extends Libs\RESTModel
 
 
         // BEGIN ChangeEvent: Record save object.
-        require_once('Services/Tracking/classes/class.ilChangeEvent.php');
+        Libs\RESTilias::includeIlias('Services/Tracking/classes/class.ilChangeEvent.php');
         \ilChangeEvent::_recordWriteEvent($obj_id, $user_id, 'create');
         // END ChangeEvent: Record save object.
 
         // rbac log
-        include_once('Services/AccessControl/classes/class.ilRbacLog.php');
+        Libs\RESTilias::includeIlias('Services/AccessControl/classes/class.ilRbacLog.php');
         $rbac_log_roles = $rbacreview->getParentRoleIds($ref_id, false);
         $rbac_log = \ilRbacLog::gatherFaPa($ref_id, array_keys($rbac_log_roles), true);
         \ilRbacLog::add(\ilRbacLog::CREATE_OBJECT, $ref_id, $rbac_log);
@@ -218,8 +224,8 @@ class PersonalFileSpaceModel extends Libs\RESTModel
      */
     public function deleteFromMyFileSpace($obj_id, $user_id)
     {
-        include_once 'Services/PersonalWorkspace/classes/class.ilWorkspaceTree.php';
-        $tree = new\ ilWorkspaceTree($user_id);
+        Libs\RESTilias::includeIlias('Services/PersonalWorkspace/classes/class.ilWorkspaceTree.php');
+        $tree = new \ilWorkspaceTree($user_id);
         $source_node_id = $tree->lookupNodeId($obj_id);
         //$parent_id = $this->tree->getParentId($source_node_id);
         $tree->deleteReference($source_node_id);

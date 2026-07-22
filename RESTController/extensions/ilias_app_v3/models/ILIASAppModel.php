@@ -10,7 +10,7 @@ use RESTController\extensions\ILIASApp\V2\data\HttpStatusCodeAnswer;
 use RESTController\extensions\ILIASApp\V2\data\IliasTreeItem;
 use RESTController\libs as Libs;
 
-require_once('./Modules/File/classes/class.ilObjFile.php');
+Libs\RESTilias::includeIlias('Modules/File/classes/class.ilObjFile.php');
 
 
 final class ILIASAppModel extends Libs\RESTModel {
@@ -248,7 +248,7 @@ final class ILIASAppModel extends Libs\RESTModel {
      */
     private function fixReferenceTitle(IliasTreeItem $treeItem) {
         if(in_array($treeItem->getType(), self::$REFERENCE_TYPES)) {
-            require_once './Services/ContainerReference/classes/class.ilContainerReference.php';
+            Libs\RESTilias::includeIlias('Services/ContainerReference/classes/class.ilContainerReference.php');
             $targetTitle = ilContainerReference::_lookupTitle($treeItem->getObjId());
             $treeItem = $treeItem->setTitle($targetTitle);
         }
@@ -258,7 +258,7 @@ final class ILIASAppModel extends Libs\RESTModel {
     private function fixSessionTitle(IliasTreeItem $treeItem) {
         if($treeItem->getType() === "sess") {
             // required for ILIAS 5.2
-            require_once './Modules/Session/classes/class.ilSessionAppointment.php';
+            Libs\RESTilias::includeIlias('Modules/Session/classes/class.ilSessionAppointment.php');
 
             $appointment = ilSessionAppointment::_lookupAppointment($treeItem->getObjId());
             $title = strlen($treeItem->getTitle()) ? (': '. $treeItem->getTitle()) : '';

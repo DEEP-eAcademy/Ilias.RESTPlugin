@@ -12,10 +12,10 @@ use DateTimeImmutable;
 use DateInterval;
 use DateTime;
 
-require_once('./Services/Membership/classes/class.ilParticipants.php');
-require_once('./Modules/File/classes/class.ilObjFile.php');
-require_once('./Services/PermanentLink/classes/class.ilLink.php');
-require_once('./Services/Administration/classes/class.ilSetting.php');
+Libs\RESTilias::includeIlias('Services/Membership/classes/class.ilParticipants.php');
+Libs\RESTilias::includeIlias('Modules/File/classes/class.ilObjFile.php');
+Libs\RESTilias::includeIlias('Services/PermanentLink/classes/class.ilLink.php');
+Libs\RESTilias::includeIlias('Services/Administration/classes/class.ilSetting.php');
 require_once __DIR__ . '/data/IliasTreeItem.php';
 
 
@@ -297,7 +297,7 @@ final class ILIASAppModel extends Libs\RESTModel
     private function fixReferenceTitle(IliasTreeItem $treeItem)
     {
         if (in_array($treeItem->getType(), self::$REFERENCE_TYPES)) {
-            require_once './Services/ContainerReference/classes/class.ilContainerReference.php';
+            Libs\RESTilias::includeIlias('Services/ContainerReference/classes/class.ilContainerReference.php');
             $targetTitle = ilContainerReference::_lookupTitle($treeItem->getObjId());
             $treeItem = $treeItem->setTitle($targetTitle);
         }
@@ -308,7 +308,7 @@ final class ILIASAppModel extends Libs\RESTModel
     {
         if ($treeItem->getType() === "sess") {
             // required for ILIAS 5.2
-            require_once './Modules/Session/classes/class.ilSessionAppointment.php';
+            Libs\RESTilias::includeIlias('Modules/Session/classes/class.ilSessionAppointment.php');
 
             $appointment = ilSessionAppointment::_lookupAppointment($treeItem->getObjId());
             $title = strlen($treeItem->getTitle()) ? (': ' . $treeItem->getTitle()) : '';

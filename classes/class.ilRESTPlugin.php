@@ -10,9 +10,10 @@
 // Include core UIHook plugin slot class
 use RESTController\extensions\ILIASApp\V2\HashCacheEntry;
 
-require_once 'Services/UIComponent/classes/class.ilUserInterfaceHookPlugin.php';
-require_once 'Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/services/FileHashing/entity/HashCacheEntry.php';
-require_once 'Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/vendor/autoload.php';
+// ilUserInterfaceHookPlugin is loaded via ILIAS's own component autoloader,
+// which is guaranteed to be active by the time ILIAS instantiates this class.
+require_once __DIR__ . '/../RESTController/extensions/ilias_app_v2/services/FileHashing/entity/HashCacheEntry.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 
 /**
  * REST Plugin

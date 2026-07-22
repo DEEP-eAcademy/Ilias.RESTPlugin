@@ -2,7 +2,7 @@
 
 namespace RESTController\extensions\ILIASApp\V2\data;
 
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/JsonSerializableAware.php';
+require_once __DIR__ . '/JsonSerializableAware.php';
 
 use JsonSerializable;
 

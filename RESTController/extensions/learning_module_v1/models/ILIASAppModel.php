@@ -16,7 +16,7 @@ use RESTController\libs as Libs;
 use SplFileInfo;
 use ilException;
 
-require_once('./Modules/File/classes/class.ilObjFile.php');
+Libs\RESTilias::includeIlias('Modules/File/classes/class.ilObjFile.php');
 
 
 final class ILIASAppModel extends Libs\RESTModel {

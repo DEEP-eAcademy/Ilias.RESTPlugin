@@ -3,10 +3,10 @@
 use \RESTController\libs as Libs;
 use ILIAS\DI\Container;
 
-require_once('./Services/Membership/classes/class.ilParticipants.php');
-require_once('./Modules/File/classes/class.ilObjFile.php');
-require_once('./Services/PermanentLink/classes/class.ilLink.php');
-require_once('./Services/Administration/classes/class.ilSetting.php');
+Libs\RESTilias::includeIlias('Services/Membership/classes/class.ilParticipants.php');
+Libs\RESTilias::includeIlias('Modules/File/classes/class.ilObjFile.php');
+Libs\RESTilias::includeIlias('Services/PermanentLink/classes/class.ilLink.php');
+Libs\RESTilias::includeIlias('Services/Administration/classes/class.ilSetting.php');
 
 
 class ILIASAppModel extends Libs\RESTModel

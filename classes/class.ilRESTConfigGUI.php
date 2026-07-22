@@ -6,9 +6,10 @@
  * Since 2014
  */
 
-// Include core configuration UI class
-require_once('Services/Component/classes/class.ilPluginConfigGUI.php');
-require_once 'Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/vendor/autoload.php';
+// ilPluginConfigGUI is loaded via ILIAS's own component autoloader, which is
+// guaranteed to be active by the time ILIAS instantiates this class.
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../RESTController/libs/RESTilias.php';
 
 // Requires <$tpl>, <$ilUser>, <$ilCtrl>, <$ilTabs>
 
@@ -60,6 +61,7 @@ class ilRESTConfigGUI extends ilPluginConfigGUI {
 
         // Get plugin o bject for translations
         $pl = $this->getPluginObject();
+        $pluginDir = \RESTController\libs\RESTilias::getPluginRelativeDirectory($pl);
 
         // Required to be able to fetch rtoken on $ilCtrl
         $ilCtrl->getFormAction($this);
@@ -71,7 +73,7 @@ class ilRESTConfigGUI extends ilPluginConfigGUI {
         $configHTML .= '<hr/>';
         $configHTML .= '<p>'.$pl->txt("welcome_adminpanel").'</p>';
         $configHTML .= '
-          <form action="' . $pl->getDirectory() . '/apps/admin/index.php" method="post" target="_blank" id="redirectForm">
+          <form action="' . $pluginDir . '/apps/admin/index.php" method="post" target="_blank" id="redirectForm">
             <input type="hidden" name="iliasClient" value="'.CLIENT_ID.'" />
             <input type="hidden" name="userId" value="'.$ilUser->getId().'" />
             <input type="hidden" name="userName" value="'.$ilUser->getLogin().'" />
@@ -85,7 +87,7 @@ class ilRESTConfigGUI extends ilPluginConfigGUI {
         $configHTML  .= '<hr/>';
         $configHTML .= '<p>'.$pl->txt("welcome_checkout_app").'</p>';
         $configHTML .= '
-          <form action="' . $pl->getDirectory() . '/apps/checkout/index.php" method="post" target="_blank" id="redirectForm">
+          <form action="' . $pluginDir . '/apps/checkout/index.php" method="post" target="_blank" id="redirectForm">
             <input type="hidden" name="iliasClient" value="'.CLIENT_ID.'" />
             <input type="hidden" name="userId" value="'.$ilUser->getId().'" />
             <input type="hidden" name="userName" value="'.$ilUser->getLogin().'" />

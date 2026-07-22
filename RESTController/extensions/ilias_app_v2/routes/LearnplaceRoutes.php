@@ -19,11 +19,11 @@ use RESTController\RESTController;
 $app->group('/learnplace', function() use ($app) {
 
 	$init = function(RESTController $app) {
-		require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/LearnplacePlugin.php';
-		require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/ErrorAnswer.php';
-		require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/BlockCollection.php';
-		require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/services/FileHashing/FileHashProvider.php';
-		require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/services/FileHashing/FileHashProviderFactory.php';
+		require_once __DIR__ . '/../models/LearnplacePlugin.php';
+		require_once __DIR__ . '/../models/data/ErrorAnswer.php';
+		require_once __DIR__ . '/../models/data/BlockCollection.php';
+		require_once __DIR__ . '/../services/FileHashing/FileHashProvider.php';
+		require_once __DIR__ . '/../services/FileHashing/FileHashProviderFactory.php';
 
 		//set json content type for all sub routes
 		$app->response()->headers()->set('Content-Type', 'application/json');
@@ -48,7 +48,7 @@ $app->group('/learnplace', function() use ($app) {
 		}
 
 		//bootstrap learnplaces plugin
-		require_once './Customizing/global/plugins/Services/Repository/RepositoryObject/Learnplaces/classes/bootstrap.php';
+		\RESTController\libs\RESTilias::includeCustomizingPlugin('Services/Repository/RepositoryObject/Learnplaces/classes/bootstrap.php');
 	};
 
 	//only numeric values without leading zeros are valid

@@ -49,7 +49,7 @@ $app->group('/v1/ebook', function () use ($app) {
 		/**
 		 * @var $ilClientIniFile ilIniFile
 		 */
-		require_once('./Services/FileDelivery/classes/class.ilFileDelivery.php');
+		\RESTController\libs\RESTilias::includeIlias('Services/FileDelivery/classes/class.ilFileDelivery.php');
 
 		$ilFileDelivery = new \ilFileDelivery($filePath);
 		$ilFileDelivery->setMimeType('application/pdf');

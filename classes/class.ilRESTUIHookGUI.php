@@ -7,9 +7,9 @@
  */
  
  
-// Include GUI-Class of UIHook plugin-slot
-include_once('Services/UIComponent/classes/class.ilUIHookPluginGUI.php');
-require_once 'Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/vendor/autoload.php';
+// ilUIHookPluginGUI is loaded via ILIAS's own component autoloader, which is
+// guaranteed to be active by the time ILIAS instantiates this class.
+require_once __DIR__ . '/../vendor/autoload.php';
 
 
 /**

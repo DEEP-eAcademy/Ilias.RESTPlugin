@@ -3,6 +3,51 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
+## [6.0.0]
+### Added
+- ILIAS 10 support, while keeping ILIAS 9 working from the same code-base
+### Changed
+- `RESTilias` now resolves the ILIAS installation root by walking up from its own
+  file location (`getIliasRoot()`) instead of assuming the current working
+  directory is the ILIAS root. This is required because ILIAS 10 introduced a
+  `public/` webroot that is no longer the same directory as the ILIAS
+  installation root (which holds `ilias.ini.php`, `vendor/`, `components/`).
+- All `require_once`/`include_once` calls into ILIAS core classes
+  (`Services/...`, `Modules/...`) now go through a new `RESTilias::includeIlias()`
+  helper, which transparently resolves either the ILIAS 9 layout
+  (`Services/<Name>/...`, `Modules/<Name>/...` at the ILIAS root) or the ILIAS 10
+  layout (`components/ILIAS/<Name>/...`, type-segment dropped, some components
+  renamed, e.g. `Object` -> `ILIASObject`).
+- All of the plugin's own self-referencing `require_once`/`include_once` calls
+  (previously hardcoded as `./Customizing/global/plugins/.../REST/...`) now use
+  `__DIR__`-relative paths instead. These only worked before when the current
+  working directory happened to be the directory directly containing
+  `Customizing/` (true for normal HTTP requests, where CWD is ILIAS's
+  `public/` webroot on ILIAS 10). They broke under ILIAS's CLI/setup tooling
+  (eg. `composer du` / "Building Static Artifacts"), where CWD is the ILIAS
+  root itself, one level above `public/` on ILIAS 10 -- `./Customizing/...`
+  doesn't exist there, only `./public/Customizing/...` does. `__DIR__`-relative
+  paths are immune to this since they don't depend on CWD at all. Added
+  `RESTilias::includeCustomizingPlugin()` for the one remaining case that
+  reaches into a *different* plugin (Learnplaces) rather than this plugin's
+  own files, which resolves the `Customizing/global/plugins/` root the same
+  version-aware way.
+- `RESTilias::getPlugin()` now uses the `component.factory` DIC service
+  (`ilComponentFactory::getPlugin()`) on ILIAS 10, since `ilPluginAdmin::getPluginObject()`
+  and the `IL_COMP_SERVICE` constant it required were both removed. Falls back
+  to the legacy API on ILIAS 9.
+- Added `RESTilias::getPluginRelativeDirectory()` to handle ILIAS 10's
+  `ilPlugin::getDirectory()` now returning an absolute filesystem path instead
+  of a webroot-relative one; uses the new `getRelativeDirectory()` where
+  available (ILIAS 10), otherwise falls back to the old relative behavior
+  (ILIAS 9). Used by the OAuth2 authorization page and the plugin
+  configuration screen to build correct URLs.
+- `files_v1` models now use `ILIAS\FileUpload\MimeType::getMimeType()` when the
+  legacy `ilMimeTypeUtil` class (removed in ILIAS 10) is not available.
+### Fixed
+- Fixed a pre-existing syntax error (`new\ ilWorkspaceTree` instead of
+  `new \ilWorkspaceTree`) in `PersonalFileSpaceModel::deleteFromMyFileSpace()`.
+
 ## [5.0.0]
 ### Added
 - ILIAS 9 support

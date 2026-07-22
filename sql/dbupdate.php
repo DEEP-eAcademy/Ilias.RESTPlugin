@@ -528,7 +528,7 @@ $database->addPrimaryKey('ui_uihk_rest_token', array('user_id'));
 $container = $GLOBALS["DIC"];
 $database = $container->database();
 
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/services/FileHashing/entity/HashCacheEntry.php';
+require_once __DIR__ . '/../RESTController/extensions/ilias_app_v2/services/FileHashing/entity/HashCacheEntry.php';
 
 use RESTController\extensions\ILIASApp\V2\HashCacheEntry;
 

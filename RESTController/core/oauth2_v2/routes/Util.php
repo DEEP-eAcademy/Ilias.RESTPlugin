@@ -21,12 +21,9 @@ $app->group('/v2', function () use ($app) {
          *  Redirects to the oauth2 admin-panel where client information and permissions can be changed.
          */
         $app->get('/config', function () use ($app) {
-            // Reference to $ilPluginAdmin-Object
-
             // Fetch location of admin-panel
-            global $DIC;
-            $ilPlugin = $DIC['component.repository']->getPluginById('REST');
-            $url = substr($ilPlugin->getDirectory(), 1) . '/apps/admin/';
+            $ilPlugin = Libs\RESTilias::getPlugin();
+            $url = '/' . Libs\RESTilias::getPluginRelativeDirectory($ilPlugin) . '/apps/admin/';
 
             // Redirect to admin panel
             $app->redirect($url);

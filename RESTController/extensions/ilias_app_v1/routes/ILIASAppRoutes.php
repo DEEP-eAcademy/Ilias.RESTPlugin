@@ -1,12 +1,13 @@
 <?php namespace RESTController\extensions\ILIASApp;
 
-require_once("./Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v1/models/ILIASAppModel.php");
-require_once('./Services/Membership/classes/class.ilParticipants.php');
+require_once(__DIR__ . '/../models/ILIASAppModel.php');
 use  RESTController\extensions\ILIASApp\ILIASAppModel;
 use \RESTController\libs\RESTAuth as RESTAuth;
 use \RESTController\core\auth as Auth;
 use \RESTController\libs as Libs;
 use RESTController\RESTController;
+
+Libs\RESTilias::includeIlias('Services/Membership/classes/class.ilParticipants.php');
 
 /** @var $app RESTController */
 /**

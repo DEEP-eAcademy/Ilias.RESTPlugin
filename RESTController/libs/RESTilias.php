@@ -44,6 +44,169 @@ class RESTilias
     const RBCA_ADMIN_ID = 2;
 
 
+    // Some ILIAS 10 components were renamed (not just moved) while restructuring
+    // Services/<Name> and Modules/<Name> into components/ILIAS/<Name>.
+    const ILIAS10_COMPONENT_RENAMES = array(
+        'Object' => 'ILIASObject',
+    );
+
+    // Cached, absolute path to the root of the ILIAS installation (the
+    // directory that directly contains 'ilias.ini.php'), lazily resolved
+    // by getIliasRoot().
+    protected static $iliasRoot = null;
+
+
+    /**
+     * Function: getIliasRoot()
+     *  Locate the absolute path of the ILIAS installation root, independent
+     *  of the current working directory. This is required because ILIAS 10
+     *  introduced a 'public/' webroot: the directory that contains
+     *  'Customizing/' (and thus this plugin) is no longer necessarily the
+     *  same directory that contains 'ilias.ini.php', 'vendor/' and
+     *  'components/' (ILIAS 9 and earlier: they are the same directory).
+     *
+     *  Resolved by walking up the directory tree starting at this file's
+     *  own location until 'ilias.ini.php' is found.
+     *
+     * Return:
+     *  <String> - Absolute filesystem path to the ILIAS root (no trailing slash)
+     */
+    public static function getIliasRoot()
+    {
+        if (self::$iliasRoot !== null) {
+            return self::$iliasRoot;
+        }
+
+        $dir = __DIR__;
+        for ($i = 0; $i < 20; $i++) {
+            if (is_file($dir . '/ilias.ini.php')) {
+                self::$iliasRoot = $dir;
+
+                // ILIAS 10's own core classes (eg. ilInitialisation.php itself
+                // requires ILIAS\DI\Container to be defined at top-level) are
+                // only autoloadable once ILIAS's own Composer autoloader has
+                // run. ILIAS 9 does not ship/need this.
+                $autoloader = $dir . '/vendor/composer/vendor/autoload.php';
+                if (is_file($autoloader)) {
+                    require_once($autoloader);
+                }
+
+                return $dir;
+            }
+            $parent = dirname($dir);
+            if ($parent === $dir) {
+                break;
+            }
+            $dir = $parent;
+        }
+
+        throw new \RuntimeException(
+            'Could not locate the ILIAS installation root (ilias.ini.php) above ' . __DIR__
+        );
+    }
+
+
+    /**
+     * Function: includeIlias($legacyPath)
+     *  Require an ILIAS core class-file given its legacy (ILIAS <= 9) relative
+     *  path, eg. 'Services/Init/classes/class.ilInitialisation.php' or
+     *  'Modules/File/classes/class.ilObjFile.php'.
+     *
+     *  ILIAS 10 dropped the 'Services'/'Modules' type-segment and moved
+     *  (some also renamed) everything into 'components/ILIAS/<Name>/...'.
+     *  This resolves and requires whichever layout is actually present,
+     *  so the same plugin code-base keeps working on both ILIAS 9 and 10.
+     *
+     * Parameters:
+     *  $legacyPath <String> - ILIAS 9-style relative path (leading './' optional)
+     */
+    public static function includeIlias($legacyPath)
+    {
+        $legacyPath = preg_replace('#^\./#', '', $legacyPath, 1);
+        $root = self::getIliasRoot();
+
+        // ILIAS 9 and earlier: Services/Modules live directly at the ILIAS root
+        $candidate = $root . '/' . $legacyPath;
+        if (is_file($candidate)) {
+            require_once($candidate);
+            return;
+        }
+
+        // ILIAS 10+: Services/Modules type-segment dropped, some components
+        // renamed, everything moved under components/ILIAS/
+        if (preg_match('#^(?:Services|Modules)/([^/]+)/(.+)$#', $legacyPath, $matches)) {
+            $component = isset(self::ILIAS10_COMPONENT_RENAMES[$matches[1]])
+                ? self::ILIAS10_COMPONENT_RENAMES[$matches[1]]
+                : $matches[1];
+            $candidate = $root . '/components/ILIAS/' . $component . '/' . $matches[2];
+            if (is_file($candidate)) {
+                require_once($candidate);
+                return;
+            }
+        }
+
+        throw new \RuntimeException(
+            "Could not locate required ILIAS class file for '$legacyPath' (checked ILIAS 9 and ILIAS 10 layouts under $root)."
+        );
+    }
+
+
+    /**
+     * Function: includeCustomizingPlugin($relativePath)
+     *  Require a file belonging to some *other* plugin under
+     *  'Customizing/global/plugins/...', given its path relative to that
+     *  directory (eg. 'Services/Repository/RepositoryObject/Learnplaces/classes/bootstrap.php').
+     *
+     *  Like includeIlias(), this exists because ILIAS 10 introduced a
+     *  'public/' webroot: 'Customizing/' now lives under 'public/Customizing/'
+     *  relative to the ILIAS root, whereas on ILIAS 9 it lives directly at
+     *  the ILIAS root.
+     *
+     * Parameters:
+     *  $relativePath <String> - Path relative to 'Customizing/global/plugins/' (leading './' optional)
+     */
+    public static function includeCustomizingPlugin($relativePath)
+    {
+        $relativePath = preg_replace('#^\./#', '', $relativePath, 1);
+        $root = self::getIliasRoot();
+
+        foreach (array('Customizing/global/plugins/', 'public/Customizing/global/plugins/') as $prefix) {
+            $candidate = $root . '/' . $prefix . $relativePath;
+            if (is_file($candidate)) {
+                require_once($candidate);
+                return;
+            }
+        }
+
+        throw new \RuntimeException(
+            "Could not locate required plugin file for '$relativePath' (checked ILIAS 9 and ILIAS 10 layouts under $root)."
+        );
+    }
+
+
+    /**
+     * Function: getPluginRelativeDirectory($plugin)
+     *  Returns the plugin's own directory as a path relative to the ILIAS
+     *  webroot, suitable for building URLs. ILIAS 10's ilPlugin::getDirectory()
+     *  now returns an absolute filesystem path (it used to return a path
+     *  relative to the ILIAS root), while the new getRelativeDirectory()
+     *  provides the webroot-relative path we actually need.
+     *
+     * Parameters:
+     *  $plugin <ilPlugin> - Plugin object, as returned by self::getPlugin()
+     *
+     * Return:
+     *  <String> - Path of the plugin's directory, relative to the webroot
+     */
+    public static function getPluginRelativeDirectory($plugin)
+    {
+        if (method_exists($plugin, 'getRelativeDirectory')) {
+            return $plugin->getRelativeDirectory();
+        }
+        return str_replace('./', '', $plugin->getDirectory());
+    }
+
+
     /**
      * Function: applyOAuth2Fix()
      *  The term 'client_id' is used twice within this context:
@@ -99,7 +262,7 @@ class RESTilias
     protected static function getIniHost()
     {
         // Create ini-handler (onces)
-        $ilIliasIniFile = new \ilIniFile("./ilias.ini.php");
+        $ilIliasIniFile = new \ilIniFile(self::getIliasRoot() . '/ilias.ini.php');
         $ilIliasIniFile->read();
 
         // Return [server] -> 'http_path' variable from 'ilias.init.php'
@@ -123,8 +286,8 @@ class RESTilias
      */
     protected static function getIniDefaultClientId()
     {
-        require_once('./Services/Init/classes/class.ilIniFile.php');
-        $ini = new \ilIniFile('./ilias.ini.php');
+        self::includeIlias('Services/Init/classes/class.ilIniFile.php');
+        $ini = new \ilIniFile(self::getIliasRoot() . '/ilias.ini.php');
         $ini->read();
         return $ini->readVariable("clients", "default");
     }
@@ -147,8 +310,8 @@ class RESTilias
         }
 
         // Required included to initialize ILIAS
-        require_once('Services/Context/classes/class.ilContext.php');
-        require_once('Services/Init/classes/class.ilInitialisation.php');
+        self::includeIlias('Services/Context/classes/class.ilContext.php');
+        self::includeIlias('Services/Init/classes/class.ilInitialisation.php');
 
         // Set ILIAS Context. This should tell ILIAS what to load and what not
         \ilContext::init(\ilContext::CONTEXT_REST);
@@ -200,8 +363,13 @@ class RESTilias
      */
     public static function getPlugin()
     {
-        // Fetch plugin object via plugin administration
-        global $ilPluginAdmin;
+        // ILIAS 10 replaced ilPluginAdmin::getPluginObject(...) (and the
+        // IL_COMP_SERVICE constant it required) with ilComponentFactory,
+        // available via the DIC. Fall back to the legacy API on ILIAS 9.
+        global $DIC, $ilPluginAdmin;
+        if (isset($DIC['component.factory'])) {
+            return $DIC['component.factory']->getPlugin('rest');
+        }
         return $ilPluginAdmin->getPluginObject(IL_COMP_SERVICE, 'UIComponent', 'uihk', 'REST');
     }
 
@@ -451,7 +619,7 @@ class RESTilias
         self::deleteSession($userId);
 
         // Iitialize Authorization in ILIAS
-        require_once('Services/Authentication/classes/class.ilAuthUtils.php');
+        self::includeIlias('Services/Authentication/classes/class.ilAuthUtils.php');
         \ilAuthUtils::_initAuth();
 
         // Authenticate user (this will generate a session in usr_session and send PHPSESSID cookie)
@@ -516,7 +684,7 @@ class RESTilias
     public static function isAdmin($userId = null)
     {
         // Load role-based access-control review-functions
-        require_once('Services/AccessControl/classes/class.ilRbacReview.php');
+        self::includeIlias('Services/AccessControl/classes/class.ilRbacReview.php');
 
         // Fetch user-id from access-token if non is given
         if (!isset($userId)) {
@@ -746,7 +914,7 @@ class RESTilias
  *
  * !!! DO NOT USE THIS CLASS OUTSIDE OF RESTLIB !!!
  */
-require_once('Services/Init/classes/class.ilInitialisation.php');
+RESTilias::includeIlias('Services/Init/classes/class.ilInitialisation.php');
 class ilInitialisation extends \ilInitialisation
 {
     /**

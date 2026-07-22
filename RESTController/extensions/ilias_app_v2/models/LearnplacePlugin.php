@@ -2,16 +2,16 @@
 
 namespace RESTController\extensions\ILIASApp\V2;
 
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/Learnplace.php';
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/Location.php';
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/Map.php';
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/VisitJournalEntry.php';
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/block/Accordion.php';
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/block/IliasLink.php';
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/block/Picture.php';
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/block/Text.php';
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/models/data/block/Video.php';
-require_once './Customizing/global/plugins/Services/UIComponent/UserInterfaceHook/REST/RESTController/extensions/ilias_app_v2/services/FileHashing/FileHashProvider.php';
+require_once __DIR__ . '/data/Learnplace.php';
+require_once __DIR__ . '/data/Location.php';
+require_once __DIR__ . '/data/Map.php';
+require_once __DIR__ . '/data/VisitJournalEntry.php';
+require_once __DIR__ . '/data/block/Accordion.php';
+require_once __DIR__ . '/data/block/IliasLink.php';
+require_once __DIR__ . '/data/block/Picture.php';
+require_once __DIR__ . '/data/block/Text.php';
+require_once __DIR__ . '/data/block/Video.php';
+require_once __DIR__ . '/../services/FileHashing/FileHashProvider.php';
 
 use DateTime;
 use Generator;
