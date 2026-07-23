@@ -22,6 +22,14 @@
 
 declare(strict_types=1);
 
+// Guard against execution as a side effect of being merely require()'d/include()'d
+// -- e.g. ILIAS's own component/classmap scanning during `composer install` at the
+// ILIAS root walks every .php file under Customizing/global/plugins. This script is
+// only meant to run when invoked directly: `php test_ilias_app_v3.php`.
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') !== realpath(__FILE__)) {
+    return;
+}
+
 require_once __DIR__ . '/RestApiTestClient.php';
 
 // ---------------------------------------------------------------------
