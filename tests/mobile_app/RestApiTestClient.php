@@ -58,7 +58,9 @@ class RestApiTestClient
     }
 
     /**
-     * Perform a POST request against a plugin route.
+     * Perform a POST request against a plugin route, body sent as
+     * application/x-www-form-urlencoded (matches what the token endpoint
+     * and most routes expect via RESTRequest::getParameter()).
      * Set $useToken=false to test unauthenticated access.
      */
     public function post($route, array $body = array(), $useToken = true)
@@ -67,9 +69,38 @@ class RestApiTestClient
     }
 
     /**
+     * Perform a POST request with a JSON-encoded body (Content-Type: application/json).
+     * Needed for routes that read the body via $app->request()->getBody() -- the
+     * Slim ContentTypes middleware only parses the body into an array for JSON (and
+     * XML/CSV), not for form-urlencoded, so those routes require this instead of post().
+     * Set $useToken=false to test unauthenticated access.
+     */
+    public function postJson($route, array $body = array(), $useToken = true)
+    {
+        return $this->request('POST', $route, $body, $useToken ? $this->accessToken : null, true);
+    }
+
+    /**
+     * Exchange a refresh-token for a new access-token (grant_type=refresh_token).
+     * Unlike authenticateWithPassword(), this does NOT replace the client's stored
+     * access-token, so it can be tested independently without affecting other tests.
+     *
+     * @return array Decoded token response (access_token, refresh_token, expires_in, ...)
+     */
+    public function refreshAccessToken($apiKey, $apiSecret, $refreshToken)
+    {
+        return $this->request('POST', '/v2/oauth2/token', array(
+            'grant_type' => 'refresh_token',
+            'api_key' => $apiKey,
+            'api_secret' => $apiSecret,
+            'refresh_token' => $refreshToken,
+        ), null);
+    }
+
+    /**
      * @return array{status:int, headers:array, body:string, json:array|null}
      */
-    private function request($method, $route, array $params, $bearerToken)
+    private function request($method, $route, array $params, $bearerToken, $asJson = false)
     {
         $url = $this->baseUrl . $route;
         $headers = array('Accept: application/json');
@@ -79,6 +110,10 @@ class RestApiTestClient
             if (!empty($params)) {
                 $url .= (strpos($url, '?') === false ? '?' : '&') . http_build_query($params);
             }
+        } elseif ($asJson) {
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
+            $headers[] = 'Content-Type: application/json';
         } else {
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($params));

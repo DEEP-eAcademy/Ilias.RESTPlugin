@@ -1,9 +1,18 @@
 <?php
 /**
- * Endpoint tests for the IACUBUS / ILIAS Pegasus mobile app API: the
- * current /v3/ilias-app/* routes (RESTController/extensions/ilias_app_v3),
- * plus GET /v1/files/:id (RESTController/extensions/files_v1), which the
- * app also uses for file downloads.
+ * Endpoint tests covering every route the current IACUBUS / ILIAS Pegasus
+ * mobile app calls:
+ *   - POST /v2/oauth2/token (password and refresh_token grants)
+ *   - GET  /v2/ilias-app/auth-token, /desktop, /objects/:refId, /news
+ *   - GET  /v2/ilias-app/learnplace/:objectId (+ /journal-entries,
+ *          /blocks, POST /journal-entry)
+ *   - GET  /v3/ilias-app/object/:refId, /files/:refId, /theme
+ *   - POST /v3/ilias-app/files/:refId/learning-progress-to-done
+ *   - GET  /v1/files/:id (files_v1) and /v1/learning-module/:refId
+ *
+ * Not covered: the initial GET/POST login.php?target=ilias_app_oauth2 page.
+ * That's an ILIAS core HTML login screen, not a JSON route served by this
+ * plugin's api.php, so it's out of scope for this API client.
  *
  * This is a standalone CLI script -- no PHPUnit, no Composer dev
  * dependencies. It authenticates against a real, running ILIAS instance
@@ -104,6 +113,26 @@ function assertHasKeys(array $json, array $keys, string $context): void
     }
 }
 
+/**
+ * Asserts the response decoded to a JSON array (list or empty), returning it.
+ * If non-empty and $itemKeys is given, checks the first item has those keys --
+ * these list endpoints legitimately return an empty array (eg. no desktop
+ * items), so we can only assert item shape when there's at least one item.
+ */
+function assertJsonArray(array $result, string $context, array $itemKeys = array()): array
+{
+    $json = assertJson($result, $context);
+    if (count($json) > 0 && !array_is_list($json)) {
+        throw new \RuntimeException(
+            "$context: expected a JSON array/list, got an object with keys: " . implode(', ', array_keys($json))
+        );
+    }
+    if (!empty($itemKeys) && count($json) > 0) {
+        assertHasKeys((array) $json[0], $itemKeys, "$context (first item)");
+    }
+    return $json;
+}
+
 // ---------------------------------------------------------------------
 // Load configuration
 // ---------------------------------------------------------------------
@@ -125,6 +154,9 @@ foreach (array('baseUrl', 'apiKey', 'apiSecret', 'username', 'password') as $req
 
 $objectRefId = (int) ($config['objectRefId'] ?? 0);
 $fileRefId = (int) ($config['fileRefId'] ?? 0);
+$parentRefId = (int) ($config['parentRefId'] ?? 0);
+$learningModuleRefId = (int) ($config['learningModuleRefId'] ?? 0);
+$learnplaceObjectId = (int) ($config['learnplaceObjectId'] ?? 0);
 $runDestructive = (bool) ($config['runDestructiveTests'] ?? false);
 
 // ---------------------------------------------------------------------
@@ -152,6 +184,109 @@ try {
 }
 
 $runner = new TestRunner();
+
+// ---------------------------------------------------------------------
+// POST /v2/oauth2/token (refresh_token grant)
+// ---------------------------------------------------------------------
+
+$runner->run('POST /v2/oauth2/token exchanges a refresh token for a new access token', function () use ($client, $config, $token) {
+    // refresh_token comes back as boolean false (not a token string) unless the
+    // REST client has the 'refresh_resource_owner' setting enabled -- see
+    // Common::GetResponse() in RESTController/core/oauth2_v2/models/Common.php.
+    if (empty($token['refresh_token'])) {
+        throw new TestSkipped("client '{$config['apiKey']}' is not configured for refresh tokens (refresh_resource_owner)");
+    }
+    $result = $client->refreshAccessToken($config['apiKey'], $config['apiSecret'], $token['refresh_token']);
+    assertStatus(200, $result, 'refresh token request');
+    $json = assertJson($result, 'refresh token request');
+    assertHasKeys($json, array('access_token', 'refresh_token', 'expires_in', 'token_type'), 'refresh token response');
+});
+
+// ---------------------------------------------------------------------
+// GET /v2/ilias-app/auth-token
+// ---------------------------------------------------------------------
+
+$runner->run('GET /v2/ilias-app/auth-token requires a token', function () use ($client) {
+    $result = $client->get('/v2/ilias-app/auth-token', array(), false);
+    assertStatus(401, $result, 'unauthenticated auth-token request');
+});
+
+$runner->run('GET /v2/ilias-app/auth-token returns a login token', function () use ($client) {
+    $result = $client->get('/v2/ilias-app/auth-token', array(), true);
+    assertStatus(200, $result, 'auth-token request');
+    // ILIASAppRoutes.php v2 '/auth-token' builds its body as
+    // json_encode("{\"token\":\"$token\"}"), which -- read literally -- would
+    // double-JSON-encode the payload into a JSON string rather than an object.
+    // In practice this has been observed to come back as a plain
+    // {"token": "..."} object (single-encoded), so accept either shape rather
+    // than assume which one a given deployment/opcache state produces.
+    $body = $result['json'];
+    if (is_string($body)) {
+        $body = json_decode($body, true);
+    }
+    if (!is_array($body) || empty($body['token'])) {
+        throw new \RuntimeException("auth-token request: expected a non-empty 'token' in the response (got: {$result['body']})");
+    }
+});
+
+// ---------------------------------------------------------------------
+// GET /v2/ilias-app/desktop
+// ---------------------------------------------------------------------
+
+$runner->run('GET /v2/ilias-app/desktop requires a token', function () use ($client) {
+    $result = $client->get('/v2/ilias-app/desktop', array(), false);
+    assertStatus(401, $result, 'unauthenticated desktop request');
+});
+
+$runner->run('GET /v2/ilias-app/desktop returns desktop items', function () use ($client) {
+    $result = $client->get('/v2/ilias-app/desktop', array(), true);
+    assertStatus(200, $result, 'desktop request');
+    assertJsonArray($result, 'desktop request', array(
+        'objId', 'title', 'description', 'hasPageLayout', 'hasTimeline',
+        'permissionType', 'refId', 'parentRefId', 'type', 'link', 'repoPath',
+    ));
+});
+
+// ---------------------------------------------------------------------
+// GET /v2/ilias-app/objects/:refId
+// ---------------------------------------------------------------------
+
+$runner->run('GET /v2/ilias-app/objects/:refId requires a token', function () use ($client, $parentRefId) {
+    if ($parentRefId <= 0) {
+        throw new TestSkipped('config.parentRefId not set');
+    }
+    $result = $client->get("/v2/ilias-app/objects/$parentRefId", array(), false);
+    assertStatus(401, $result, 'unauthenticated objects request');
+});
+
+$runner->run('GET /v2/ilias-app/objects/:refId returns child objects', function () use ($client, $parentRefId) {
+    if ($parentRefId <= 0) {
+        throw new TestSkipped('config.parentRefId not set');
+    }
+    $result = $client->get("/v2/ilias-app/objects/$parentRefId", array(), true);
+    assertStatus(200, $result, 'objects request');
+    assertJsonArray($result, 'objects request', array(
+        'objId', 'title', 'description', 'hasPageLayout', 'hasTimeline',
+        'permissionType', 'refId', 'parentRefId', 'type', 'link', 'repoPath',
+    ));
+});
+
+// ---------------------------------------------------------------------
+// GET /v2/ilias-app/news
+// ---------------------------------------------------------------------
+
+$runner->run('GET /v2/ilias-app/news requires a token', function () use ($client) {
+    $result = $client->get('/v2/ilias-app/news', array(), false);
+    assertStatus(401, $result, 'unauthenticated news request');
+});
+
+$runner->run('GET /v2/ilias-app/news returns news items', function () use ($client) {
+    $result = $client->get('/v2/ilias-app/news', array(), true);
+    assertStatus(200, $result, 'news request');
+    assertJsonArray($result, 'news request', array(
+        'newsId', 'newsContext', 'title', 'subtitle', 'content', 'createDate', 'updateDate',
+    ));
+});
 
 // ---------------------------------------------------------------------
 // GET /v3/ilias-app/theme
@@ -307,6 +442,99 @@ $runner->run('GET /v1/files/:id downloads file content', function () use ($clien
     if ($result['body'] === '') {
         throw new \RuntimeException('v1 files download: response body was empty');
     }
+});
+
+// ---------------------------------------------------------------------
+// GET /v1/learning-module/:refId (learning_module_v1 extension)
+// ---------------------------------------------------------------------
+
+$runner->run('GET /v1/learning-module/:refId requires a token', function () use ($client, $learningModuleRefId) {
+    if ($learningModuleRefId <= 0) {
+        throw new TestSkipped('config.learningModuleRefId not set');
+    }
+    $result = $client->get("/v1/learning-module/$learningModuleRefId", array(), false);
+    assertStatus(401, $result, 'unauthenticated learning-module request');
+});
+
+$runner->run('GET /v1/learning-module/:refId returns module data', function () use ($client, $learningModuleRefId) {
+    if ($learningModuleRefId <= 0) {
+        throw new TestSkipped('config.learningModuleRefId not set');
+    }
+    $result = $client->get("/v1/learning-module/$learningModuleRefId", array(), true);
+    assertStatus(200, $result, 'learning-module request');
+    $json = assertJson($result, 'learning-module request');
+    assertHasKeys($json, array('startFile', 'zipFile', 'zipDirName', 'timestamp'), 'learning-module response');
+});
+
+// ---------------------------------------------------------------------
+// Learnplace plugin routes (/v2/ilias-app/learnplace/*)
+//
+// Requires the separate "Learnplaces" plugin to be installed and active,
+// and config.learnplaceObjectId to be set to an OBJECT-ID (not ref-ID) of
+// a learnplace the test user can read -- see LearnplaceRoutes.php's
+// checkReadAccessRight(), which resolves ref-IDs from the object-id itself.
+// ---------------------------------------------------------------------
+
+$runner->run('GET /v2/ilias-app/learnplace/:objectId requires a token', function () use ($client, $learnplaceObjectId) {
+    if ($learnplaceObjectId <= 0) {
+        throw new TestSkipped('config.learnplaceObjectId not set');
+    }
+    $result = $client->get("/v2/ilias-app/learnplace/$learnplaceObjectId", array(), false);
+    assertStatus(401, $result, 'unauthenticated learnplace request');
+});
+
+$runner->run('GET /v2/ilias-app/learnplace/:objectId returns learnplace data', function () use ($client, $learnplaceObjectId) {
+    if ($learnplaceObjectId <= 0) {
+        throw new TestSkipped('config.learnplaceObjectId not set');
+    }
+    $result = $client->get("/v2/ilias-app/learnplace/$learnplaceObjectId", array(), true);
+    assertStatus(200, $result, 'learnplace request');
+    $json = assertJson($result, 'learnplace request');
+    assertHasKeys($json, array('objectId', 'location', 'map'), 'learnplace response');
+    assertHasKeys((array) $json['location'], array('latitude', 'longitude', 'elevation', 'radius'), 'learnplace location');
+    assertHasKeys((array) $json['map'], array('visibility', 'zoomLevel'), 'learnplace map');
+});
+
+$runner->run('GET /v2/ilias-app/learnplace/:objectId/journal-entries returns visit journal', function () use ($client, $learnplaceObjectId) {
+    if ($learnplaceObjectId <= 0) {
+        throw new TestSkipped('config.learnplaceObjectId not set');
+    }
+    $result = $client->get("/v2/ilias-app/learnplace/$learnplaceObjectId/journal-entries", array(), true);
+    assertStatus(200, $result, 'learnplace journal-entries request');
+    assertJsonArray($result, 'learnplace journal-entries request', array('userId', 'timestamp'));
+});
+
+$runner->run('POST /v2/ilias-app/learnplace/:objectId/journal-entry requires a token', function () use ($client, $learnplaceObjectId) {
+    if ($learnplaceObjectId <= 0) {
+        throw new TestSkipped('config.learnplaceObjectId not set');
+    }
+    $result = $client->postJson("/v2/ilias-app/learnplace/$learnplaceObjectId/journal-entry", array('time' => time()), false);
+    assertStatus(401, $result, 'unauthenticated learnplace journal-entry request');
+});
+
+$runner->run('POST /v2/ilias-app/learnplace/:objectId/journal-entry records a visit', function () use ($client, $learnplaceObjectId, $runDestructive) {
+    if (!$runDestructive) {
+        throw new TestSkipped('config.runDestructiveTests is false');
+    }
+    if ($learnplaceObjectId <= 0) {
+        throw new TestSkipped('config.learnplaceObjectId not set');
+    }
+    // Must be JSON (not form-urlencoded): the route reads $app->request()->getBody(),
+    // which Slim's ContentTypes middleware only parses into an array for JSON bodies.
+    $result = $client->postJson("/v2/ilias-app/learnplace/$learnplaceObjectId/journal-entry", array('time' => time()), true);
+    assertStatus(200, $result, 'learnplace journal-entry request');
+    $json = assertJson($result, 'learnplace journal-entry request');
+    assertHasKeys($json, array('message'), 'learnplace journal-entry response');
+});
+
+$runner->run('GET /v2/ilias-app/learnplace/:objectId/blocks returns block collection', function () use ($client, $learnplaceObjectId) {
+    if ($learnplaceObjectId <= 0) {
+        throw new TestSkipped('config.learnplaceObjectId not set');
+    }
+    $result = $client->get("/v2/ilias-app/learnplace/$learnplaceObjectId/blocks", array(), true);
+    assertStatus(200, $result, 'learnplace blocks request');
+    $json = assertJson($result, 'learnplace blocks request');
+    assertHasKeys($json, array('text', 'picture', 'video', 'iliasLink', 'accordion'), 'learnplace blocks response');
 });
 
 exit($runner->summary());

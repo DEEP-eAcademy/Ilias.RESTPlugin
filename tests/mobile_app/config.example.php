@@ -31,9 +31,25 @@ return array(
     // Used by the GET /v3/ilias-app/files/:refId test.
     'fileRefId' => 0,
 
-    // Set to true to also run the learning-progress-to-done test. This is
-    // opt-in because it WRITES data (marks the file above as read/done for
-    // the test user) -- only enable against a disposable test object.
+    // Ref-ID of a container object (course, folder, category, ...) the test
+    // user can read, with at least one visible child. Used by the
+    // GET /v2/ilias-app/objects/:refId test. Leave as 0 to skip.
+    'parentRefId' => 0,
+
+    // Ref-ID of a supported learning module (HTLM or SCORM/SAHS) the test
+    // user can read. Used by the GET /v1/learning-module/:refId test.
+    // Leave as 0 to skip.
+    'learningModuleRefId' => 0,
+
+    // Object-ID (not ref-ID) of a Learnplace the test user can read. Only
+    // relevant if the Learnplaces plugin is installed and active. Used by
+    // the GET/POST /v2/ilias-app/learnplace/* tests. Leave as 0 to skip.
+    'learnplaceObjectId' => 0,
+
+    // Set to true to also run the learning-progress-to-done and
+    // learnplace journal-entry tests. This is opt-in because it WRITES data
+    // (marks the file above as read/done, records a learnplace visit) --
+    // only enable against disposable test objects.
     'runDestructiveTests' => false,
 
     // TLS verification. Only disable for local/self-signed test setups.
