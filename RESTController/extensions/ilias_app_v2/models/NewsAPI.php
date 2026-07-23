@@ -5,7 +5,11 @@ namespace RESTController\extensions\ILIASApp\V2;
 require_once __DIR__ . '/../../../libs/RESTilias.php';
 require_once __DIR__ . '/data/NewsItem.php';
 
-use DateTime;
+use ILIAS\News\Data\NewsCriteria;
+use ILIAS\News\Data\NewsItem as IliasNewsItem;
+use ILIAS\News\InternalDataService as NewsInternalDataService;
+use ILIAS\News\InternalDomainService as NewsInternalDomainService;
+use ILIAS\News\InternalRepoService as NewsInternalRepoService;
 use ilLanguage;
 use ilNewsItem;
 use ilObject;
@@ -65,36 +69,53 @@ final class NewsAPI {
 	 * @see NewsItem
 	 */
 	public function findAllNewsForAuthenticatedUser() {
-		$userId = intval(RESTilias::loadIlUser()->getId()); //fetch current user.
-		$onlyPublic = false;
-		$preventAggregation = false;
+		global $DIC;
 
-		$period = ilNewsItem::_lookupUserPDPeriod($userId);
-		$rawNewsEntries = ilNewsItem::_getNewsItemsOfUser($userId, $onlyPublic, $preventAggregation, $period);
+		// ilNewsItem::_getNewsItemsOfUser() was removed in ILIAS 10; the closest
+		// replacement is $DIC->news()->internal()->domain()->collection(), as used
+		// by ilPDNewsBlockGUI/ilUserFeedWriter. But ILIAS\News\Service::internal()
+		// unconditionally builds BOTH the domain AND the gui half (InternalService's
+		// constructor), and constructing the gui half runs FormAdapterGUI::initJavascript(),
+		// which needs the full UI framework bootstrap (initUIFramework()) -- something
+		// this API's lightweight bootstrap never runs, causing a
+		// "help.text_retriever is not defined" DIC lookup failure. We only need the
+		// domain half, so build InternalDomainService directly (same constructor
+		// ILIAS\News\Service::internal() itself uses) instead of going through the
+		// GUI-coupled facade.
+		$dataService = new NewsInternalDataService();
+		$repoService = new NewsInternalRepoService($dataService, $DIC->database());
+		$domainService = new NewsInternalDomainService($DIC, $repoService, $dataService);
+
+		$user = RESTilias::loadIlUser();
+		$onlyPublic = false;
+
+		$period = ilNewsItem::_lookupUserPDPeriod(intval($user->getId()));
+		$criteria = new NewsCriteria(period: $period, only_public: $onlyPublic);
+		$rawNewsEntries = $domainService->collection()->getNewsForUser($user, $criteria);
 		$newsEntries = [];
 
+		/** @var IliasNewsItem $rawNewsEntry */
 		foreach ($rawNewsEntries as $rawNewsEntry) {
 
 			// determine the actual content and title
-			$obj_id = intval(ilObject::_lookupObjId($rawNewsEntry['ref_id']));
-
-			$rawObjectType = strval(ilObject::_lookupType($obj_id));
+			$obj_id = $rawNewsEntry->getContextObjId();
+			$rawObjectType = $rawNewsEntry->getContextObjType();
 
 			$obj_type = $this->translateObjectType($rawObjectType);
 			$obj_title = strval(ilObject::_lookupTitle($obj_id));
 			$title = sprintf('%s: %s', $obj_type, $obj_title);
-			$content = ilNewsItem::determineNewsContent($rawNewsEntry["context_obj_type"], $rawNewsEntry["content"], $rawNewsEntry["content_text_is_lang_var"]);
-			$subtitle = $this->translateSubtitle($rawNewsEntry);
+			$content = ilNewsItem::determineNewsContent($rawObjectType, $rawNewsEntry->getContent(), $rawNewsEntry->isContentTextIsLangVar());
+			$subtitle = $this->translateSubtitle($rawObjectType, $rawNewsEntry->getTitle(), $rawNewsEntry->isContentIsLangVar());
 
 			$newsEntry = new NewsItem();
 			$newsEntry
-				->setNewsId(intval($rawNewsEntry['id']))
-				->setNewsContext((key_exists('agg_ref_id', $rawNewsEntry)) ? intval($rawNewsEntry['agg_ref_id']) : intval($rawNewsEntry['ref_id']))
+				->setNewsId($rawNewsEntry->getId())
+				->setNewsContext($rawNewsEntry->getContextRefId())
 				->setTitle($title)
 				->setSubtitle((is_null($subtitle)) ? '' : strval($subtitle))
 				->setContent((is_null($content)) ? '' : strval($content))
-				->setCreateDate((new DateTime($rawNewsEntry['creation_date']))->getTimestamp())
-				->setUpdateDate((new DateTime($rawNewsEntry['update_date']))->getTimestamp());
+				->setCreateDate($rawNewsEntry->getCreationDate()->getTimestamp())
+				->setUpdateDate($rawNewsEntry->getUpdateDate()->getTimestamp());
 			$newsEntries[] = $newsEntry;
 		}
 
@@ -139,23 +160,19 @@ final class NewsAPI {
 	/**
 	 * Translates the news title.
 	 *
-	 * @param string[] $rawNewsEntry The raw news entry.
+	 * @param string $contextObjType   The news entry's context object type.
+	 * @param string $title            The news entry's raw title.
+	 * @param bool   $contentIsLangVar Whether the title is a language variable.
 	 *
 	 * @return string The translated news title.
 	 */
-	private function translateSubtitle(array $rawNewsEntry) {
-		$subtitle = ilNewsItem::determineNewsTitle(
-			$rawNewsEntry["context_obj_type"],
-			$rawNewsEntry["title"],
-			$rawNewsEntry["content_is_lang_var"],
-			(array_key_exists('agg_ref_id', $rawNewsEntry)) ? $rawNewsEntry['agg_ref_id'] : NULL,
-			(array_key_exists('aggregation', $rawNewsEntry)) ? $rawNewsEntry['aggregation'] : NULL
-		);
+	private function translateSubtitle($contextObjType, $title, $contentIsLangVar) {
+		$subtitle = ilNewsItem::determineNewsTitle($contextObjType, $title, $contentIsLangVar);
 
 		$matches = [];
-		if(preg_match('/^-(.*?)-$/', $subtitle,$matches) === 1 && $this->definition->isPlugin($rawNewsEntry["context_obj_type"])) {
+		if(preg_match('/^-(.*?)-$/', $subtitle,$matches) === 1 && $this->definition->isPlugin($contextObjType)) {
 			//fallback if the news service failed to translate a plugin title (BUG ILIAS 5.2.12)
-			return ilObjectPlugin::lookupTxtById($rawNewsEntry["context_obj_type"], $matches[1]);
+			return ilObjectPlugin::lookupTxtById($contextObjType, $matches[1]);
 		}
 
 		return$subtitle;
